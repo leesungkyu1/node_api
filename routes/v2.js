@@ -1,10 +1,29 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const url = require('url');
 
 const { verifyToken, apiLimiter } = require('./middlewares');
 const { Domain, User, Post, Hashtag } = require('../models');
 
 const router = express.Router();
+
+
+
+
+router.use(async (req, res, next) => {
+    const domain = await Domain.findOne({
+        where : { host: url.parse(req.get('origin')).host},
+    });
+    if( domain ){
+        cors({
+            origin: req.get('origin'),
+            credential: true,
+        })(req, res, next);
+    }else{
+        next();
+    }
+});
 
 router.post('/token', apiLimiter, async (req, res) => {
     const { clientSecret } = req.body;
@@ -87,5 +106,28 @@ router.get('/posts/hashtag/:title', verifyToken, apiLimiter, async (req, res) =>
         });
     }
 });
+
+
+router.get('/users/:id', async (req, res) => {
+    try{
+        const follower = User.findAll({
+            where : { id : req.params.id }
+        })
+        if(follower){
+            return res.status(200).json({
+                code: 200,
+                body : follower,
+            })
+        }
+
+    }catch(err){
+        console.error(err);
+        return res.status(500).json({
+            code : 500,
+            message : '서버 에러',
+        })
+
+    }
+})
 
 module.exports = router;
